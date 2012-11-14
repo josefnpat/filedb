@@ -1,0 +1,126 @@
+#!/usr/bin/php
+<?php
+error_reporting(-1);//dev
+
+define("DB_LOC","db.dat");
+define("ENC_LOC","db.dat.gpg");
+
+require("lib/ask.php");
+require("lib/notice.php");
+require("lib/yago.php");
+if(file_exists(DB_LOC)){
+  $raw = @file_get_contents(DB_LOC);
+  if($raw === false){
+    echo notice("error","Cannot read contents of `".DB_LOC."`.");
+  } else {
+    $db = json_decode($raw);
+    if($db === NULL){
+      echo notice("error","Could not decode database.");
+      unset($db);
+    } else {
+      echo notice("info","Database `".DB_LOC."` valid.");
+    }
+  }
+} else {
+  echo notice("warning","Database `".DB_LOC."` does not exist.");
+}
+
+if(!isset($db)){
+  if(file_exists(ENC_LOC)){
+    echo notice("info","Encrypted database `".ENC_LOC."` availible.");
+  } else {
+    echo notice("info","No encrypted databases found.");
+  }
+}
+
+function db_save($db){
+  if(false === file_put_contents(DB_LOC,json_encode($db))){
+    echo notice("error","Could not write to `".DB_LOC."`.");
+  } else {
+    echo notice("info","Database `".DB_LOC."` saved.");
+  }
+}
+
+function generate_string($length = 40){
+  $chars =  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  $str = '';
+  $max = strlen($chars) - 1;
+  for ($i=0; $i < $length; $i++)
+    $str .= $chars[rand(0, $max)];
+  return $str;
+}
+
+$opts = yago("-t,--tag,-d,--dry");
+$op = (isset($opts['operands'][1]) ? $opts['operands'][1] : false);
+switch($op){
+  case "i":
+  case "init":
+    $db = new stdClass();
+    $db->entries = array();
+    db_save($db);
+    break;
+  case "e":
+  case "encrypt":
+    if(!file_exists(DB_LOC)){
+      echo notice("error","Database `".DB_LOC."` does not exist.");
+      break;
+    }
+    passthru('gpg --output '.ENC_LOC.' -c '.DB_LOC);
+    echo notice("info","Database encrypted to `".ENC_LOC."`.");
+    if(ask("Would you like to delete `".DB_LOC."`")){
+      unlink(DB_LOC);
+    }
+    break;
+  case "d":
+  case "decrypt":
+    if(!file_exists(ENC_LOC)){
+      echo notice("error","Encrypted database `".ENC_LOC."` does not exist.");
+      break;
+    }
+    passthru('gpg --output '.DB_LOC.' '.ENC_LOC);
+    echo notice("info","Database decrypted to `".DB_LOC."`.");
+    break;
+  case "a":
+  case "add":
+    if(!isset($db)){
+      echo notice("error","No valid database.");
+      break;
+    }
+    if(isset($opts['operands'][2])){
+      $file_name = $opts['operands'][2];
+    } else {
+      $file_name = readline("Filename:");
+    }
+    if(file_exists($file_name)){
+      if(is_dir($file_name)){
+        echo notice("error","`".$file_name."` is not a file.");
+      } else {
+        $row = new stdClass();
+        $row->file_name = basename($file_name);
+        $row->enc_file_name = generate_string();
+        $row->password = generate_string();
+        $db->entries[] = $row;
+        echo "Archiving $file_name .. ";
+        passthru("7z a ".$row->enc_file_name." \"$file_name\" -p=".$row->password);
+        echo "done.\n";
+        db_save($db);
+        echo notice("info","File `".$file_name."` added to database `".DB_LOC."`.");
+      }
+    } else {
+      echo notice("error","File `".$row->file_name."` does not exist.");
+    }
+    break;
+  case "l":
+  case "list":
+    if(!isset($db)){
+      echo notice("error","No valid database.");
+      break;
+    }
+    echo str_pad("Encoded File Name",40)." ".str_pad("Encoded File Password",40)." File Name\n";
+    foreach($db->entries as $row){
+      echo $row->enc_file_name." ".$row->password." ".$row->file_name."\n";
+    }
+    break;
+  default:
+    echo "Usage() TODO\n";
+}
