@@ -2,7 +2,7 @@
 
 # Purose
 
-To securely keep a database of file with encrypted filenames and passwords.
+To securely keep a database of files with encrypted filenames and passwords.
 
 # Requirements
 
