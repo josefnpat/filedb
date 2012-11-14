@@ -50,7 +50,7 @@ function generate_string($length = 40){
   return $str;
 }
 
-$opts = yago("-t,--tag,-d,--dry");
+$opts = yago("");
 $op = (isset($opts['operands'][1]) ? $opts['operands'][1] : false);
 switch($op){
   case "i":
@@ -122,5 +122,15 @@ switch($op){
     }
     break;
   default:
-    echo "Usage() TODO\n";
+?>
+usage: filedb [options]
+
+Options:
+  i|init          Initialize the database.
+  e|encrypt       Encrypt the database.
+  d|decrupt       Decrypt the database.
+  a|add           Add a file record to the database and encrypt the file to
+                  those specifications.
+  l|list          List the file records.
+<?php
 }
